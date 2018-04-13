@@ -1,0 +1,201 @@
+<!--
+  Copyright 2018 Google Inc.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.4.2/chosen.jquery.min.js"></script>
+<script>
+  /**
+   * Run initializations on dialog load.
+   */
+  $(function() {
+    //On Load
+    google.script.run
+        .withUserObject(this)
+        .withSuccessHandler(onSuccessHandler_getReportList)
+        .withFailureHandler(onFailureHandler_getReportList)
+        .withUserObject(this)
+        .getReportList();
+    google.script.run
+        .withUserObject(this)
+        .withSuccessHandler(onSuccessHandler_getLinkedReportSetup)
+        .withFailureHandler(onFailureHandler_getLinkedReportSetup)
+        .withUserObject(this)
+        .getLinkedReportSetup();
+    // Assign handler functions to dialog elements here
+    $('#dialog-execute-button').click(onExecuteClick);
+    $('#unlink-report-button').click(onUnlinkClick);
+    $("#dbm-report-list").chosen({disable_search_threshold:2,width:"80%"});
+  });
+
+  /**
+   * Handles success on display setup of linked report.
+   * @param {Object} linkedReport Contains report name and user name.
+   */
+  function onSuccessHandler_getLinkedReportSetup(linkedReport) {
+    if(linkedReport.reportSetupUser && linkedReport.reportName) {
+      google.script.host.setHeight(230);
+      $("#linked-report-setup-info").html("Currently linked report: <b>" +
+																					    linkedReport.reportName +
+																					    "</b> setup by: <b>" +
+																					    linkedReport.reportSetupUser +
+																					    "</b>");
+      $("#linked-report-setup-info").show();
+    }
+    else {
+      google.script.host.setHeight(170);
+    }
+  }
+
+  /**
+   * Handles failure on retrieving setup of linked report.
+   * @param {string} msg Contains error info.
+   */
+  function onFailureHandler_getLinkedReportSetup(msg) {
+    showStatus('Execution failed: ' + msg, 'error');
+  }
+
+  /**
+   * Handles failure on retrieving list of reports.
+   * @param {string} msg contains error info.
+   * @param {string} element contains invalid element info.
+   */
+  function onFailureHandler_getReportList(msg,element) {
+    showStatus('Execution failed: ' + msg, 'error');
+  }
+
+  /**
+   * Handles success on display list of reports.
+   * @param {Array} reports Contains list of reports to include in option list.
+   */
+  function onSuccessHandler_getReportList(reports) {
+    var selected = "";
+    if(reports.length == 0) {
+      showStatus("No DBM reports found corresponding to your account. Please create one first");
+      return;
+    }
+    for(var i=0; i<reports.length; i++) {
+      if(reports[i].linked == true) {
+        selected = "selected";
+        $("#unlink-report-button").show();
+      }
+      else {
+        selected = "";
+      }
+      $('#dbm-report-list').append('<option value="' +
+                                       reports[i].query_id +
+                                       '" ' + selected + ' >' +
+                                       reports[i].title +
+                                       '</option>');
+    }
+    $('#dbm-report-list').trigger("chosen:updated");
+    $("#dialog-status").hide();
+    $("#dialog-elements").show();
+  }
+
+  /**
+   * Populate the sheet with right data on button click.
+   */
+  function onExecuteClick() {
+    $("#dialog-execute-button").prop('disabled',true);
+    var queryId = $('#dbm-report-list option:selected').val();
+    var reportName = $('#dbm-report-list option:selected').text();
+    if(queryId == "--") {
+      showStatus('Please select a valid report');
+      $("#dialog-execute-button").prop('disabled',false);
+      return;
+    }
+
+    showStatus('Working...');
+
+    // Send the value to the server and handle the response.
+    google.script.run
+        .withSuccessHandler(onSuccessHandler_pullReportData)
+        .withFailureHandler(onFailHandler_pullReportData)
+        .withUserObject(this)        
+        .fetchLatestData(queryId, reportName);
+  }
+
+  /**
+   * Handles success on pulling report data.
+   * @param {string} msg Success message.
+   * @param {Object} element Element on which handler was executed.
+   */
+  function onSuccessHandler_pullReportData(msg,element) {
+     showStatus('Execution successful. Please close the dialog box & use Refresh button ' +
+         'for manual refreshes in future');
+     $("#unlink-report-button").show();
+     $("#dialog-execute-button").prop('disabled',false);
+      google.script.run
+        .withUserObject(this)
+        .withSuccessHandler(onSuccessHandler_getLinkedReportSetup)
+        .withFailureHandler(onFailureHandler_getLinkedReportSetup)
+        .withUserObject(this)
+        .getLinkedReportSetup();
+  }
+
+  /**
+   * Handles failure to pull Web Query.
+   * @param {string} msg The status message to display.
+   * @param {string} element The element on which error occurred
+   *     should be displayed as.
+   */
+  function onFailHandler_pullReportData(msg,element) {
+     showStatus('Execution failed: ' + msg, 'error');
+  }
+
+  /**
+   * Displays the given status message in the dialog.
+   * @param {string} msg The status message to display.
+   * @param {string} classId The message type (class id) that the message
+   *     should be displayed as.
+   */
+  function showStatus(msg, classId) {
+    $('#dialog-status').show();
+    $('#dialog-status').removeClass().html(msg);
+    if (classId) {
+      $('#dialog-status').addClass(classId);
+    }
+  }
+
+  /**
+   * Unlink action called on click.
+   */
+  function onUnlinkClick() {
+    event.preventDefault();
+    google.script.run
+        .withSuccessHandler(onSuccessHandler_unlinkReport)
+        .withFailureHandler(onFailHandler_unlinkReport)
+        .withUserObject(this)
+        .unlinkReport();
+  }
+
+  /**
+   * Handles success on unlinking report action.
+   */
+  function onSuccessHandler_unlinkReport() {
+     $("#dbm-report-list").val("--");
+     $('#dbm-report-list').trigger("chosen:updated");
+     showStatus("");
+     $("#unlink-report-button").hide();
+     $("#linked-report-setup-info").hide();
+     google.script.host.setHeight(170);
+  }
+
+  /**
+   * Handles failure on unlinking report action.
+   * @param {string} msg Contains error message.
+   */
+  function onFailHandler_unlinkReport(msg) {
+    showStatus('Unlink failed: ' + msg, 'error');
+  }
+</script>

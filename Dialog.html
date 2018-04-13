@@ -1,0 +1,40 @@
+<!--
+  Copyright 2018 Google Inc.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<!-- Use a templated HTML printing scriptlet to import common stylesheet. -->
+<link rel="stylesheet" type="text/css"
+    href="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.4.2/chosen.min.css">
+<?!= HtmlService.createHtmlOutputFromFile('Stylesheet').getContent(); ?>
+
+<!-- Below is the HTML code that defines the dialog element structure. -->
+<div id="dialog-elements">
+  <div>
+    <p id="linked-report-setup-info"></p>
+    <label for="dbm-report-list">
+      Please select the DBM Report:
+    </label>
+    <select id="dbm-report-list">
+      <option value="--">Select one</option>
+    </select>
+    <a id="unlink-report-button">Unlink Report</a>
+  </div>
+  <br>
+  <div class="block" id="dialog-button-bar">
+    <button class="action" id="dialog-execute-button">Submit</button>
+    <button id="dialog-cancel-button" onclick="google.script.host.close()">Close</button>
+  </div>
+</div>
+<div id="dialog-status">Loading DBM Reports. Please wait...</div>
+
+<!-- Use a templated HTML printing scriptlet to import JavaScript. -->
+<?!= HtmlService.createHtmlOutputFromFile('DialogJavascript').getContent(); ?>
